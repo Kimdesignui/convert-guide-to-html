@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>DocFlow Builder | NXB Quân đội Nhân dân</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <style>
+    :root{--p:#1a6b3c;--p2:#145530;--p3:#e8f5ee;--p4:#d0eadb;--gray:#6b7280;--bd:#e5e7eb;--bg:#f9fafb;--tx:#111827}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+    #loading{position:fixed;inset:0;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:9999}
+    #loading.show{display:flex}
+    .spinner{width:48px;height:48px;border:5px solid var(--p4);border-top-color:var(--p);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .header{background:var(--p);color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.2);flex-shrink:0}
+    .hd-left{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700}
+    .badge{background:rgba(255,255,255,.25);border-radius:20px;padding:2px 9px;font-size:11px}
+    .hd-right{display:flex;gap:8px}
+    .btn-hd{padding:7px 14px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px}
+    .btn-hd.white{background:#fff;color:var(--p)}.btn-hd.white:hover{background:var(--p3)}
+    .btn-hd.ghost{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)}.btn-hd.ghost:hover{background:rgba(255,255,255,.25)}
+    /* TOOLBAR */
+    .toolbar{background:#fff;border-bottom:1px solid var(--bd);padding:5px 12px;display:flex;align-items:center;gap:2px;flex-wrap:wrap;flex-shrink:0}
+    .tsep{width:1px;height:22px;background:var(--bd);margin:0 3px;flex-shrink:0}
+    .tb{padding:5px 8px;border:1px solid transparent;background:transparent;border-radius:5px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:3px;color:var(--tx);white-space:nowrap;line-height:1}
+    .tb:hover{background:var(--p3);border-color:var(--p4)}
+    .tb svg{width:16px;height:16px;fill:currentColor;display:block}
+    .tb.painter-active{background:#fef3c7;border-color:#f59e0b;color:#92400e;animation:blink .8s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+    select.tsel{padding:4px 6px;border:1px solid var(--bd);border-radius:5px;font-size:12px;cursor:pointer;background:#fff;color:var(--tx)}
+    input.tcol{width:28px;height:26px;border:1px solid var(--bd);border-radius:5px;cursor:pointer;padding:2px}
+    /* HEADING FORMAT PANEL */
+    .hpanel{background:#fafafa;border-bottom:2px solid var(--bd);padding:5px 12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0}
+    .hpl{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px}
+    .hpi{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--bd);border-radius:7px;padding:4px 8px}
+    .hpt{font-size:11px;font-weight:700;color:var(--p);min-width:28px;text-align:center}
+    select.hpf{padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;background:#fff;cursor:pointer}
+    select.hps{padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;background:#fff;cursor:pointer;width:48px}
+    input.hpc{width:22px;height:22px;border:1px solid #ddd;border-radius:4px;cursor:pointer;padding:1px}
+    .hpbtn{padding:3px 8px;border:none;border-radius:4px;background:var(--p);color:#fff;font-size:11px;font-weight:600;cursor:pointer}
+    .hpbtn:hover{background:var(--p2)}
+    .hpbtn.all{background:#374151}
+    /* Copy format tooltip */
+    .cp-badge{background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;color:#92400e;display:none;align-items:center;gap:4px}
+    .cp-badge.show{display:flex}
+    /* LAYOUT */
+    .app-body{display:flex;flex:1;overflow:hidden}
+    .col-left{width:248px;background:#fff;border-right:1px solid var(--bd);overflow-y:auto;flex-shrink:0}
+    .col-center{flex:1;display:flex;overflow:hidden;background:var(--bg);padding:14px}
+    .col-right{width:230px;background:#fff;border-left:1px solid var(--bd);overflow-y:auto;flex-shrink:0}
+    .sec-head{padding:10px 14px 5px;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px}
+    .dropz{position:relative;margin:0 10px 10px;border:2px dashed #ddd;border-radius:10px;padding:16px 10px;text-align:center;background:var(--bg);cursor:pointer;transition:.2s}
+    .dropz:hover,.dropz.drag{border-color:var(--p);background:var(--p3)}
+    .dropz .di{font-size:28px;margin-bottom:5px}.dropz .dl{font-size:13px;font-weight:600;margin-bottom:2px}.dropz .dh{font-size:11px;color:var(--gray)}
+    .dropz input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+    .tipbox{margin:0 10px 10px;padding:8px 10px;background:var(--p3);border-radius:8px;font-size:11px;line-height:1.6}
+    .tipbox b{color:var(--p)}
+    .center-inner{display:flex;gap:14px;width:100%;height:100%;overflow:hidden}
+    /* TOC */
+    .toc-panel{width:220px;flex-shrink:0;background:#fff;border:1px solid var(--bd);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;flex-direction:column;overflow:hidden}
+    .toc-header{padding:10px 12px 8px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .toc-header-title{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px}
+    .toc-expand-all{font-size:10px;color:var(--p);cursor:pointer;border:none;background:none;padding:2px 6px;border-radius:4px}
+    .toc-expand-all:hover{background:var(--p3)}
+    .toc-body{flex:1;overflow-y:auto;padding:6px 4px}
+    .toc-group{margin-bottom:2px}
+    .toc-l1{display:flex;align-items:flex-start;border-radius:7px;overflow:hidden}
+    .toc-l1-toggle{width:22px;flex-shrink:0;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:7px 0 7px 4px;color:var(--gray);font-size:11px}
+    .toc-l1-toggle .arrow{display:inline-block;transition:transform .2s}
+    .toc-l1-toggle.open .arrow{transform:rotate(90deg)}
+    .toc-l1-link{flex:1;display:flex;align-items:flex-start;gap:6px;padding:7px 8px 7px 4px;cursor:pointer;border-radius:0 7px 7px 0;transition:.15s;border-left:3px solid transparent}
+    .toc-l1-link:hover{background:var(--p3)}
+    .toc-l1-link.active{background:var(--p3);border-left-color:var(--p)}
+    .toc-l1-link.active .toc-num,.toc-l1-link.active .toc-txt{color:var(--p);font-weight:700}
+    .toc-children{overflow:hidden;max-height:0;transition:max-height .3s ease}
+    .toc-children.open{max-height:2000px}
+    .toc-l2-item{display:flex;align-items:flex-start;margin-left:14px;border-radius:6px;overflow:hidden}
+    .toc-l2-toggle{width:18px;flex-shrink:0;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:5px 0 5px 2px;color:var(--gray);font-size:10px}
+    .toc-l2-toggle .arrow{display:inline-block;transition:transform .2s}
+    .toc-l2-toggle.open .arrow{transform:rotate(90deg)}
+    .toc-l2-link{flex:1;display:flex;align-items:flex-start;gap:5px;padding:5px 6px 5px 4px;cursor:pointer;border-radius:0 6px 6px 0;transition:.15s;border-left:2px solid transparent}
+    .toc-l2-link:hover{background:var(--p3)}
+    .toc-l2-link.active{background:var(--p3);border-left-color:var(--p)}
+    .toc-l2-link.active .toc-num,.toc-l2-link.active .toc-txt{color:var(--p)}
+    .toc-l3-item{display:flex;align-items:flex-start;gap:5px;margin-left:28px;padding:4px 6px 4px 8px;cursor:pointer;border-radius:5px;transition:.15s;border-left:2px solid transparent}
+    .toc-l3-item:hover,.toc-l3-item.active{background:var(--p3)}
+    .toc-l3-item.active{border-left-color:var(--p)}
+    .toc-l4-item{display:flex;align-items:flex-start;gap:5px;margin-left:40px;padding:3px 6px 3px 8px;cursor:pointer;border-radius:4px;transition:.15s;border-left:2px solid transparent}
+    .toc-l4-item:hover,.toc-l4-item.active{background:var(--p3)}
+    .toc-l4-item.active{border-left-color:var(--p)}
+    .toc-num{font-weight:700;flex-shrink:0;color:var(--p);line-height:1.35}
+    .toc-txt{line-height:1.35;color:var(--tx)}
+    /* EDITOR */
+    .editor-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+    #editor{flex:1;padding:28px 36px;overflow-y:auto;outline:none;font-size:15px;line-height:1.75}
+    #editor img{max-width:100%;height:auto;border-radius:4px}
+    #editor p{margin:.6em 0}
+    #editor table{border-collapse:collapse;width:100%;margin:12px 0}
+    #editor th,#editor td{border:1px solid #ddd;padding:8px;font-size:14px}
+    #editor th{background:#f5f5f5;font-weight:600}
+    #editor ul,#editor ol{margin:.5em 0 .5em 1.5em}
+    #editor blockquote{border-left:4px solid var(--p);margin:.8em 0;padding:.4em 1em;background:var(--p3);border-radius:0 6px 6px 0;font-style:italic}
+    #editor a{color:var(--p);text-decoration:underline}
+    #editor code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:13px}
+    #editor h1{font-size:24px;font-weight:700;margin:1.4em 0 .5em}
+    #editor h2{font-size:20px;font-weight:700;margin:1.2em 0 .4em;color:#1a6b3c}
+    #editor h3{font-size:17px;font-weight:600;margin:1em 0 .4em;color:#374151}
+    #editor h4{font-size:15px;font-weight:600;margin:.8em 0 .3em;color:#4b5563}
+    .empty-banner{text-align:center;padding:80px 30px;color:var(--gray)}
+    .empty-banner .ei{font-size:52px;margin-bottom:16px;display:block}
+    /* RIGHT */
+    .panel{padding:12px 14px;border-bottom:1px solid var(--bd)}
+    .panel:last-child{border-bottom:none}
+    .pt{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+    .bbig{width:100%;padding:9px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px}
+    .bbig.g{background:var(--p);color:#fff}.bbig.g:hover{background:var(--p2)}
+    .bbig.o{background:#fff;color:var(--tx);border:1px solid var(--bd)}.bbig.o:hover{background:var(--bg)}
+    .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+    .sbox{background:var(--bg);border-radius:8px;padding:10px;text-align:center}
+    .sn{font-size:20px;font-weight:700;color:var(--p);display:block}
+    .sl{font-size:11px;color:var(--gray);margin-top:2px}
+    .status-bar{background:#fff;border-top:1px solid var(--bd);padding:6px 16px;font-size:12px;color:var(--gray);display:flex;align-items:center;gap:8px;flex-shrink:0}
+    /* cursor khi paint mode */
+    #editor.paint-mode{cursor:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><text y="20" font-size="20">🖌</text></svg>') 0 20, crosshair}
+
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div style="font-size:16px;font-weight:700;color:var(--p)" id="loadText">Đang xử lý...</div>
+  <div style="font-size:13px;color:var(--gray)" id="loadSub"></div>
+</div>
+
+<div class="header">
+  <div class="hd-left">📄 DocFlow Builder <span class="badge">v4.4</span> <span style="font-size:11px;opacity:.7">NXB Quân đội</span></div>
+  <div class="hd-right">
+    <button class="btn-hd white" onclick="exportDoc()">📤 Xuất HTML</button>
+    <button class="btn-hd ghost" onclick="printDoc()">🖨 In/PDF</button>
+  </div>
+</div>
+
+<div class="toolbar">
+  <select class="tsel" onchange="document.execCommand('fontName',false,this.value);this.blur()">
+    <option value="Times New Roman">Times New Roman</option><option value="Arial">Arial</option>
+    <option value="Segoe UI">Segoe UI</option><option value="Calibri">Calibri</option>
+    <option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Courier New">Courier New</option>
+  </select>
+  <select class="tsel" style="width:52px" onchange="document.execCommand('fontSize',false,this.value);this.blur()">
+    <option value="">Cỡ</option><option value="1">8</option><option value="2">10</option><option value="3">12</option>
+    <option value="4">14</option><option value="5">18</option><option value="6">24</option><option value="7">32</option>
+  </select>
+  <div class="tsep"></div>
+  <button class="tb" onclick="fmtBlock('h1')" title="Đề mục A (H1)" style="font-weight:700">A</button>
+  <button class="tb" onclick="fmtBlock('h2')" title="Mục 1. (H2)" style="font-weight:700">1.</button>
+  <button class="tb" onclick="fmtBlock('h3')" title="Tiểu mục 1.1 (H3)" style="font-weight:700">1.1</button>
+  <button class="tb" onclick="fmtBlock('h4')" title="Mục nhỏ 1.1.1 (H4)" style="font-weight:700">1.1.1</button>
+  <button class="tb" onclick="fmtBlock('p')" title="Đoạn thường">¶</button>
+  <div class="tsep"></div>
+  <button class="tb" onclick="execFmt('bold')"><b>B</b></button>
+  <button class="tb" onclick="execFmt('italic')"><i>I</i></button>
+  <button class="tb" onclick="execFmt('underline')"><u>U</u></button>
+  <button class="tb" onclick="execFmt('strikeThrough')"><s>S</s></button>
+  <button class="tb" onclick="execFmt('superscript')">x²</button>
+  <button class="tb" onclick="execFmt('subscript')">x₂</button>
+
+  <!-- COPY FORMAT PAINTER -->
+  <div class="tsep"></div>
+  <button class="tb" id="painterBtn" onclick="togglePainter()" title="Copy định dạng — Bấm để bật, rồi click vào heading muốn áp dụng">
+    🖌 Copy định dạng
+  </button>
+  <div class="cp-badge" id="painterBadge">🖌 Đang chờ chọn heading...</div>
+
+  <div class="tsep"></div>
+  <button class="tb" onclick="execFmt('justifyLeft')" title="Căn trái"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="6" width="10" height="2"/><rect x="1" y="10" width="14" height="2"/><rect x="1" y="14" width="8" height="2"/></svg></button>
+  <button class="tb" onclick="execFmt('justifyCenter')" title="Căn giữa"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="3" y="6" width="10" height="2"/><rect x="1" y="10" width="14" height="2"/><rect x="4" y="14" width="8" height="2"/></svg></button>
+  <button class="tb" onclick="execFmt('justifyRight')" title="Căn phải"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="5" y="6" width="10" height="2"/><rect x="1" y="10" width="14" height="2"/><rect x="7" y="14" width="8" height="2"/></svg></button>
+  <button class="tb" onclick="execFmt('justifyFull')" title="Căn đều"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="6" width="14" height="2"/><rect x="1" y="10" width="14" height="2"/><rect x="1" y="14" width="14" height="2"/></svg></button>
+  <div class="tsep"></div>
+  <button class="tb" onclick="execFmt('indent')" title="Thụt lề vào"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><polygon points="1,7 5,9 1,11"/><rect x="6" y="7" width="9" height="2"/><rect x="6" y="11" width="9" height="2"/><rect x="1" y="14" width="14" height="2"/></svg></button>
+  <button class="tb" onclick="execFmt('outdent')" title="Thụt lề ra"><svg viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="2"/><polygon points="5,7 1,9 5,11"/><rect x="6" y="7" width="9" height="2"/><rect x="6" y="11" width="9" height="2"/><rect x="1" y="14" width="14" height="2"/></svg></button>
+  <select class="tsel" style="width:82px" onchange="setLineH(this.value)">
+    <option value="">Dòng...</option><option value="1.0">Đơn 1.0</option><option value="1.15">1.15</option>
+    <option value="1.5">1.5</option><option value="2.0">Đôi 2.0</option><option value="2.5">2.5</option>
+  </select>
+  <select class="tsel" style="width:88px" onchange="setParaSpacing(this.value)">
+    <option value="">Đoạn...</option><option value="0">Sát 0px</option><option value="6">Nhỏ 6px</option>
+    <option value="12">Vừa 12px</option><option value="18">Lớn 18px</option><option value="24">Rộng 24px</option>
+  </select>
+  <div class="tsep"></div>
+  <button class="tb" onclick="execFmt('insertUnorderedList')"><svg viewBox="0 0 16 16"><circle cx="2" cy="4" r="1.5"/><rect x="5" y="3" width="10" height="2"/><circle cx="2" cy="8" r="1.5"/><rect x="5" y="7" width="10" height="2"/><circle cx="2" cy="12" r="1.5"/><rect x="5" y="11" width="10" height="2"/></svg></button>
+  <button class="tb" onclick="execFmt('insertOrderedList')"><svg viewBox="0 0 16 16"><text x="0" y="5" font-size="5">1.</text><rect x="6" y="3" width="9" height="2"/><text x="0" y="9" font-size="5">2.</text><rect x="6" y="7" width="9" height="2"/><text x="0" y="13" font-size="5">3.</text><rect x="6" y="11" width="9" height="2"/></svg></button>
+  <div class="tsep"></div>
+  <label style="display:flex;align-items:center;gap:2px;font-size:12px;cursor:pointer;font-weight:600" title="Màu chữ">A<input class="tcol" type="color" value="#111827" onchange="document.execCommand('foreColor',false,this.value)"></label>
+  <label style="display:flex;align-items:center;gap:2px;font-size:12px;cursor:pointer" title="Màu nền">HL<input class="tcol" type="color" value="#ffff00" onchange="document.execCommand('hiliteColor',false,this.value)"></label>
+  <div class="tsep"></div>
+  <button class="tb" onclick="insertLnk()" title="Link">🔗</button>
+  <button class="tb" onclick="insertImg()" title="Ảnh">🖼</button>
+  <button class="tb" onclick="insertTbl()" title="Bảng">📊</button>
+  <button class="tb" onclick="insertQuote()" title="Trích dẫn">❝</button>
+  <button class="tb" onclick="insertHR()" title="HR">—</button>
+  <div class="tsep"></div>
+  <button class="tb" onclick="execFmt('undo')">↩</button>
+  <button class="tb" onclick="execFmt('redo')">↪</button>
+</div>
+
+<!-- ĐỊNH DẠNG ĐỀ MỤC -->
+<div class="hpanel">
+  <span class="hpl">🎨 Đề mục:</span>
+  <div class="hpi"><span class="hpt">A</span>
+    <select class="hpf" id="hf1"><option value="Times New Roman">Times NR</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe</option><option value="Georgia">Georgia</option></select>
+    <select class="hps" id="hs1"><option value="20px">20</option><option value="22px">22</option><option value="24px" selected>24</option><option value="28px">28</option></select>
+    <input class="hpc" type="color" id="hc1" value="#111827">
+    <button class="hpbtn" onclick="applyH(1)" title="Áp dụng cho tất cả H1">Áp dụng</button>
+    <button class="hpbtn" style="background:#6366f1" onclick="copyFmtFromPanel(1)" title="Copy định dạng này để dùng nhanh">📋 Copy</button>
+  </div>
+  <div class="hpi"><span class="hpt">1.</span>
+    <select class="hpf" id="hf2"><option value="Times New Roman">Times NR</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe</option><option value="Georgia">Georgia</option></select>
+    <select class="hps" id="hs2"><option value="16px">16</option><option value="18px">18</option><option value="20px" selected>20</option><option value="22px">22</option></select>
+    <input class="hpc" type="color" id="hc2" value="#1a6b3c">
+    <button class="hpbtn" onclick="applyH(2)">Áp dụng</button>
+    <button class="hpbtn" style="background:#6366f1" onclick="copyFmtFromPanel(2)">📋 Copy</button>
+  </div>
+  <div class="hpi"><span class="hpt">1.1</span>
+    <select class="hpf" id="hf3"><option value="Times New Roman">Times NR</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe</option><option value="Georgia">Georgia</option></select>
+    <select class="hps" id="hs3"><option value="14px">14</option><option value="15px">15</option><option value="16px">16</option><option value="17px" selected>17</option></select>
+    <input class="hpc" type="color" id="hc3" value="#374151">
+    <button class="hpbtn" onclick="applyH(3)">Áp dụng</button>
+    <button class="hpbtn" style="background:#6366f1" onclick="copyFmtFromPanel(3)">📋 Copy</button>
+  </div>
+  <div class="hpi"><span class="hpt">1.1.1</span>
+    <select class="hpf" id="hf4"><option value="Times New Roman">Times NR</option><option value="Arial">Arial</option><option value="Segoe UI">Segoe</option><option value="Georgia">Georgia</option></select>
+    <select class="hps" id="hs4"><option value="13px">13</option><option value="14px">14</option><option value="15px" selected>15</option><option value="16px">16</option></select>
+    <input class="hpc" type="color" id="hc4" value="#4b5563">
+    <button class="hpbtn" onclick="applyH(4)">Áp dụng</button>
+    <button class="hpbtn" style="background:#6366f1" onclick="copyFmtFromPanel(4)">📋 Copy</button>
+  </div>
+  <button class="hpbtn all" onclick="applyAllH()">✅ Tất cả</button>
+</div>
+
+<div class="app-body">
+  <div class="col-left">
+    <div class="sec-head">① Upload DOCX</div>
+    <div class="dropz" id="dz1">
+      <div class="di">📄</div><div class="dl">Kéo thả / Bấm chọn</div><div class="dh">File .docx</div>
+      <input type="file" id="inp-docx" accept=".docx">
+    </div>
+    <div class="sec-head">② Upload ZIP Google Docs</div>
+    <div class="tipbox"><b>📌 ZIP:</b> Google Docs → File → Tải xuống → Trang web (.html đã nén)</div>
+    <div class="dropz" id="dz2">
+      <div class="di">📦</div><div class="dl">Kéo thả / Bấm chọn</div><div class="dh">File .zip</div>
+      <input type="file" id="inp-zip" accept=".zip">
+    </div>
+  </div>
+
+  <div class="col-center">
+    <div class="center-inner">
+      <div class="toc-panel">
+        <div class="toc-header">
+          <span class="toc-header-title">📋 Mục lục</span>
+          <button class="toc-expand-all" id="expandAllBtn" onclick="toggleAllGroups()">Thu gọn</button>
+        </div>
+        <div class="toc-body" id="tocBody">
+          <div style="color:var(--gray);font-size:12px;padding:24px 8px;text-align:center;line-height:1.6">Upload file để tạo<br>mục lục tự động...</div>
+        </div>
+      </div>
+      <div class="editor-wrap">
+        <div id="editor" contenteditable="true">
+          <div class="empty-banner">
+            <span class="ei">📄</span>
+            <h3 style="font-size:17px;font-weight:600;color:#374151;margin-bottom:8px">Chưa có tài liệu</h3>
+            <p style="font-size:13px;color:var(--gray);line-height:1.6">Upload DOCX hoặc ZIP Google Docs<br>để bắt đầu soạn thảo</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-right">
+    <div class="panel">
+      <div class="pt">📤 Xuất</div>
+      <button class="bbig g" onclick="exportDoc()">📤 Xuất HTML + Sidebar</button>
+      <button class="bbig o" onclick="window.print()">🖨 In/PDF</button>
+    </div>
+    <div class="panel">
+      <div class="pt">📊 Thống kê</div>
+      <div class="sgrid">
+        <div class="sbox"><span class="sn" id="nw">0</span><div class="sl">Từ</div></div>
+        <div class="sbox"><span class="sn" id="nh">0</span><div class="sl">Tiêu đề</div></div>
+        <div class="sbox"><span class="sn" id="ni">0</span><div class="sl">Ảnh</div></div>
+        <div class="sbox"><span class="sn" id="nt">0</span><div class="sl">Bảng</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span style="width:8px;height:8px;border-radius:50%;background:#10b981;flex-shrink:0"></span>
+  <span id="statusMsg">Sẵn sàng — DocFlow Builder v4.4</span>
+</div>
+
+<script>
+const editor = document.getElementById('editor');
+let allExpanded = true;
+
+// ===== LOADING =====
+function showLoad(t,s){document.getElementById('loadText').textContent=t;document.getElementById('loadSub').textContent=s||'';document.getElementById('loading').classList.add('show')}
+function hideLoad(){document.getElementById('loading').classList.remove('show')}
+function setStatus(m){document.getElementById('statusMsg').textContent=m}
+
+// ===== UPLOAD =====
+document.getElementById('inp-docx').addEventListener('change',e=>{const f=e.target.files[0];if(f)loadDocx(f);e.target.value=''});
+document.getElementById('inp-zip').addEventListener('change',e=>{const f=e.target.files[0];if(f)loadZip(f);e.target.value=''});
+['dz1','dz2'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag')});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag');const f=e.dataTransfer.files[0];if(!f)return;if(id==='dz1'&&f.name.endsWith('.docx'))loadDocx(f);if(id==='dz2'&&f.name.endsWith('.zip'))loadZip(f)});
+});
+async function loadDocx(file){
+  showLoad('Đang đọc DOCX...',file.name);
+  try{const ab=await file.arrayBuffer();const res=await mammoth.convertToHtml({arrayBuffer:ab});editor.innerHTML=res.value;editor.focus();setStatus('✅ DOCX: '+file.name);refresh();applyAllH()}
+  catch(e){setStatus('❌ '+e.message);alert('Lỗi: '+e.message)}
+  hideLoad()
+}
+async function loadZip(file){
+  showLoad('Giải nén ZIP...',file.name);
+  try{
+    const ab=await file.arrayBuffer();const zip=await JSZip.loadAsync(ab);
+    let he=null;for(const[n,e] of Object.entries(zip.files)){if(!e.dir&&n.toLowerCase().endsWith('.html')){he=e;break}}
+    if(!he)throw new Error('Không tìm thấy HTML');
+    let html=await he.async('string');
+    const imgs={};
+    for(const[n,e] of Object.entries(zip.files)){
+      if(e.dir)continue;const ext=n.split('.').pop().toLowerCase();
+      if(!['png','jpg','jpeg','gif','webp','svg'].includes(ext))continue;
+      const b64=await e.async('base64');const mime=ext==='svg'?'image/svg+xml':'image/'+(ext==='jpg'?'jpeg':ext);
+      imgs[n.split('/').pop()]='data:'+mime+';base64,'+b64;
+    }
+    html=html.replace(/src=["']([^"']+)["']/g,(m,src)=>{if(src.startsWith('data:'))return m;return imgs[src.split('/').pop()]?'src="'+imgs[src.split('/').pop()]+'"':m});
+    editor.innerHTML=html;editor.focus();setStatus('✅ ZIP: '+file.name);refresh();applyAllH()
+  }catch(e){setStatus('❌ '+e.message);alert('Lỗi: '+e.message)}
+  hideLoad()
+}
+
+// ===== EDITOR =====
+function execFmt(cmd){document.execCommand(cmd,false,null);editor.focus();refresh()}
+function fmtBlock(tag){document.execCommand('formatBlock',false,tag);editor.focus();refresh()}
+function setLineH(v){if(!v)return;const s=window.getSelection();if(!s||!s.rangeCount)return;let n=s.anchorNode;while(n&&n.parentNode!==editor&&n!==editor)n=n.parentNode;if(n&&n!==editor)n.style.lineHeight=v;editor.focus()}
+function setParaSpacing(v){if(v==='')return;const s=window.getSelection();if(!s||!s.rangeCount)return;let n=s.anchorNode;while(n&&n.parentNode!==editor&&n!==editor)n=n.parentNode;if(n&&n!==editor){n.style.marginTop=v+'px';n.style.marginBottom=v+'px'}editor.focus()}
+function insertLnk(){const u=prompt('URL:');if(u){document.execCommand('createLink',false,u);editor.focus()}}
+function insertImg(){const u=prompt('URL ảnh:');if(u){document.execCommand('insertHTML',false,'<img src="'+u+'" style="max-width:100%">');editor.focus()}}
+function insertTbl(){
+  const r=parseInt(prompt('Số hàng:','3'))||3,c=parseInt(prompt('Số cột:','3'))||3;
+  let t='<table style="border-collapse:collapse;width:100%;margin:12px 0">';
+  for(let i=0;i<r;i++){t+='<tr>';for(let j=0;j<c;j++){const tg=i===0?'th':'td';t+=`<${tg} style="border:1px solid #ddd;padding:8px">&nbsp;</${tg}>`}t+='</tr>'}
+  t+='</table>';document.execCommand('insertHTML',false,t);editor.focus();refresh()
+}
+function insertQuote(){document.execCommand('insertHTML',false,'<blockquote style="border-left:4px solid #1a6b3c;margin:.8em 0;padding:.4em 1em;background:#e8f5ee;border-radius:0 6px 6px 0;font-style:italic">Trích dẫn...</blockquote>');editor.focus()}
+function insertHR(){document.execCommand('insertHTML',false,'<hr style="border:none;border-top:2px solid #e5e7eb;margin:16px 0">');editor.focus()}
+
+// ===== HEADING FORMAT =====
+function applyH(lv){
+  const f=document.getElementById('hf'+lv).value;
+  const s=document.getElementById('hs'+lv).value;
+  const c=document.getElementById('hc'+lv).value;
+  editor.querySelectorAll('h'+lv).forEach(h=>{h.style.fontFamily=f;h.style.fontSize=s;h.style.color=c;h.style.fontWeight='bold'});
+  buildTOC(); // Rebuild TOC để đồng bộ font chỉ mục
+  setStatus('✅ H'+lv+' — '+f+' '+s+' áp dụng xong');
+}
+function applyAllH(){applyH(1);applyH(2);applyH(3);applyH(4);setStatus('✅ Áp dụng tất cả định dạng đề mục')}
+
+// ===== FORMAT PAINTER (Copy định dạng) =====
+let painterMode = false;
+let painterStyle = null; // {fontFamily, fontSize, color, fontWeight}
+
+// Bật từ toolbar (copy từ heading đang được chọn)
+function togglePainter(){
+  if(painterMode){
+    deactivatePainter();
+    return;
+  }
+  // Lấy định dạng từ node đang focus
+  const sel = window.getSelection();
+  if(!sel||!sel.rangeCount){alert('Vui lòng click vào heading muốn copy định dạng');return}
+  let node = sel.anchorNode;
+  while(node && !['H1','H2','H3','H4','H5','H6','P'].includes(node.nodeName) && node !== editor) node = node.parentNode;
+  if(!node||node===editor){alert('Vui lòng click vào heading muốn copy định dạng trước');return}
+  const cs = window.getComputedStyle(node);
+  painterStyle = {fontFamily:node.style.fontFamily||cs.fontFamily, fontSize:node.style.fontSize||cs.fontSize, color:node.style.color||cs.color, fontWeight:node.style.fontWeight||cs.fontWeight};
+  activatePainter(`Đã copy định dạng từ ${node.nodeName} — click vào heading cần áp dụng`);
+}
+
+// Copy từ panel định dạng theo cấp
+function copyFmtFromPanel(lv){
+  const f=document.getElementById('hf'+lv).value;
+  const s=document.getElementById('hs'+lv).value;
+  const c=document.getElementById('hc'+lv).value;
+  painterStyle = {fontFamily:f, fontSize:s, color:c, fontWeight:'bold'};
+  activatePainter('Đã copy định dạng H'+lv+' — click vào heading muốn áp dụng');
+}
+
+function activatePainter(msg){
+  painterMode = true;
+  document.getElementById('painterBtn').classList.add('painter-active');
+  document.getElementById('painterBadge').classList.add('show');
+  document.getElementById('painterBadge').innerHTML = '🖌 ' + msg;
+  editor.classList.add('paint-mode');
+  setStatus('🖌 Paint mode ON — ' + msg);
+}
+function deactivatePainter(){
+  painterMode = false;
+  painterStyle = null;
+  document.getElementById('painterBtn').classList.remove('painter-active');
+  document.getElementById('painterBadge').classList.remove('show');
+  editor.classList.remove('paint-mode');
+  setStatus('✅ Copy định dạng hoàn tất');
+}
+
+// Click vào editor khi paint mode → áp dụng format
+editor.addEventListener('click', e => {
+  if(!painterMode || !painterStyle) return;
+  let node = e.target;
+  while(node && !['H1','H2','H3','H4','H5','H6'].includes(node.nodeName) && node !== editor) node = node.parentNode;
+  if(!node || node === editor){setStatus('⚠️ Chỉ áp dụng được cho heading (H1-H6)');return}
+  node.style.fontFamily = painterStyle.fontFamily;
+  node.style.fontSize = painterStyle.fontSize;
+  node.style.color = painterStyle.color;
+  if(painterStyle.fontWeight) node.style.fontWeight = painterStyle.fontWeight;
+  setStatus('✅ Đã áp dụng định dạng cho ' + node.nodeName + ': ' + node.innerText.slice(0,30));
+  // Giữ paint mode để dùng tiếp, bấm Esc hoặc nút để tắt
+});
+document.addEventListener('keydown', e => {if(e.key==='Escape'&&painterMode)deactivatePainter()});
+
+// ===== TOC ACCORDION =====
+function buildTOC(){
+  const hs = editor.querySelectorAll('h1,h2,h3,h4');
+  const toc = document.getElementById('tocBody');
+  if(!hs.length){toc.innerHTML='<div style="color:var(--gray);font-size:12px;padding:16px 8px;text-align:center">Không có tiêu đề</div>';return}
+  // Lấy font từ panel định dạng đề mục
+  const hFont=[null,
+    document.getElementById('hf1').value,
+    document.getElementById('hf2').value,
+    document.getElementById('hf3').value,
+    document.getElementById('hf4').value
+  ];
+  const cnt=[0,0,0,0];
+  const items=[];
+  hs.forEach((h,i)=>{
+    if(!h.id)h.id='sec'+Date.now()+i;
+    const lv=parseInt(h.tagName[1])-1;
+    cnt[lv]++;for(let k=lv+1;k<4;k++)cnt[k]=0;
+    let num='';
+    if(lv===0)num=String.fromCharCode(64+cnt[0]);
+    else if(lv===1)num=cnt[1]+'.';
+    else if(lv===2)num=cnt[1]+'.'+cnt[2];
+    else num=cnt[1]+'.'+cnt[2]+'.'+cnt[3];
+    items.push({id:h.id,lv,num,txt:(h.innerText||'').trim().slice(0,55)});
+  });
+  let html='',i=0;
+  while(i<items.length){
+    const item=items[i];
+    if(item.lv===0){
+      const gid='grp'+i;
+      let childHtml='',j=i+1;
+      while(j<items.length&&items[j].lv>0){
+        const c2=items[j];
+        if(c2.lv===1){
+          const sg='sgrp'+j;let subHtml='',k=j+1;
+          while(k<items.length&&items[k].lv>1){
+            const c3=items[k];
+            if(c3.lv===2){
+              let h4Html='',m=k+1;
+              while(m<items.length&&items[m].lv===3){
+                h4Html+=`<div class="toc-l4-item" data-id="${items[m].id}" onclick="jumpTo('${items[m].id}')"><span class="toc-num" style="font-size:10px;min-width:36px;font-family:${hFont[4]}">${items[m].num}</span><span class="toc-txt" style="font-size:10px;font-family:${hFont[4]}">${items[m].txt}</span></div>`;m++;}
+              subHtml+=`<div class="toc-l3-item" data-id="${c3.id}" onclick="jumpTo('${c3.id}')"><span class="toc-num" style="font-size:11px;min-width:30px;font-family:${hFont[3]}">${c3.num}</span><span class="toc-txt" style="font-size:11px;font-family:${hFont[3]}">${c3.txt}</span></div>${h4Html}`;k=m;
+            }else k++;
+          }
+          const hasSub=subHtml.length>0;
+          childHtml+=`<div><div class="toc-l2-item">${hasSub?`<button class="toc-l2-toggle open" onclick="toggleSub('${sg}',this)"><span class="arrow">▶</span></button>`:'<span style="width:18px;flex-shrink:0"></span>'}<div class="toc-l2-link" data-id="${c2.id}" onclick="jumpTo('${c2.id}')"><span class="toc-num" style="font-size:12px;min-width:26px;font-family:${hFont[2]}">${c2.num}</span><span class="toc-txt" style="font-size:12px;font-family:${hFont[2]}">${c2.txt}</span></div></div>${hasSub?`<div class="toc-children open" id="${sg}">${subHtml}</div>`:''}</div>`;
+          j=k;
+        }else j++;
+      }
+      const hasC=childHtml.length>0;
+      html+=`<div class="toc-group"><div class="toc-l1">${hasC?`<button class="toc-l1-toggle open" onclick="toggleGroup('${gid}',this)"><span class="arrow">▶</span></button>`:'<span style="width:22px;flex-shrink:0"></span>'}<div class="toc-l1-link" data-id="${item.id}" onclick="jumpTo('${item.id}')"><span class="toc-num" style="font-size:13px;min-width:22px">${item.num}</span><span class="toc-txt" style="font-size:13px;font-weight:700">${item.txt}</span></div></div>${hasC?`<div class="toc-children open" id="${gid}">${childHtml}</div>`:''}</div>`;
+      i=j;
+    }else{
+      const lv=item.lv,ind=lv*14;
+      html+=`<div style="display:flex;align-items:flex-start;gap:5px;margin-left:${ind}px;padding:5px 8px;cursor:pointer;border-radius:5px" data-id="${item.id}" onclick="jumpTo('${item.id}')"><span class="toc-num" style="font-size:${14-lv}px;min-width:28px">${item.num}</span><span class="toc-txt" style="font-size:${14-lv}px">${item.txt}</span></div>`;
+      i++;
+    }
+  }
+  toc.innerHTML=html;
+  setupScrollSpy();
+}
+function toggleGroup(id,btn){const el=document.getElementById(id);if(!el)return;el.classList.toggle('open');btn.classList.toggle('open')}
+function toggleSub(id,btn){const el=document.getElementById(id);if(!el)return;el.classList.toggle('open');btn.classList.toggle('open')}
+function toggleAllGroups(){
+  const groups=document.querySelectorAll('.toc-children');
+  const btns=document.querySelectorAll('.toc-l1-toggle,.toc-l2-toggle');
+  if(allExpanded){groups.forEach(g=>g.classList.remove('open'));btns.forEach(b=>b.classList.remove('open'));document.getElementById('expandAllBtn').textContent='Mở rộng';allExpanded=false}
+  else{groups.forEach(g=>g.classList.add('open'));btns.forEach(b=>b.classList.add('open'));document.getElementById('expandAllBtn').textContent='Thu gọn';allExpanded=true}
+}
+function jumpTo(id){const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})}
+
+// ===== SCROLL SPY =====
+function setupScrollSpy(){
+  const ed=document.getElementById('editor');
+  ed.onscroll=null;
+  ed.addEventListener('scroll',onScroll,{passive:true});
+}
+function onScroll(){
+  const ed=document.getElementById('editor');
+  const hs=editor.querySelectorAll('h1,h2,h3,h4');
+  if(!hs.length)return;
+  let current=null;
+  hs.forEach(h=>{if(h.offsetTop-ed.offsetTop<=ed.scrollTop+100)current=h});
+  if(!current)return;
+  document.querySelectorAll('[data-id]').forEach(el=>{el.classList.remove('active')});
+  const al=document.querySelector(`[data-id="${current.id}"]`);
+  if(al){
+    al.classList.add('active');
+    let p=al.parentElement;
+    while(p&&p!==document.getElementById('tocBody')){
+      if(p.classList.contains('toc-children')&&!p.classList.contains('open')){p.classList.add('open');const b=p.previousElementSibling;if(b)b.classList.add('open')}
+      p=p.parentElement;
+    }
+    al.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+}
+
+// ===== STATS =====
+function refresh(){
+  const text=editor.innerText||'';
+  document.getElementById('nw').textContent=text.split(/\s+/).filter(Boolean).length;
+  document.getElementById('nh').textContent=editor.querySelectorAll('h1,h2,h3,h4,h5,h6').length;
+  document.getElementById('ni').textContent=editor.querySelectorAll('img').length;
+  document.getElementById('nt').textContent=editor.querySelectorAll('table').length;
+  buildTOC();
+}
+
+// ===== EXPORT HTML + SIDEBAR TOC =====
+function buildExportTOC(content){
+  const tmp=document.createElement('div');
+  tmp.innerHTML=content;
+  const hs=tmp.querySelectorAll('h1,h2,h3,h4');
+  if(!hs.length)return'';
+  const cnt=[0,0,0,0];
+  let thtml='';
+  hs.forEach((h,i)=>{
+    if(!h.id)h.id='esec'+i;
+    const lv=parseInt(h.tagName[1])-1;
+    cnt[lv]++;for(let k=lv+1;k<4;k++)cnt[k]=0;
+    let num='';
+    if(lv===0)num=String.fromCharCode(64+cnt[0]);
+    else if(lv===1)num=cnt[1]+'.';
+    else if(lv===2)num=cnt[1]+'.'+cnt[2];
+    else num=cnt[1]+'.'+cnt[2]+'.'+cnt[3];
+    const ind=lv*12;const fs=Math.max(11,14-lv);const fw=lv<=1?'700':'400';
+    const col=lv===0?'#111827':lv===1?'#1a6b3c':'#374151';
+    thtml+=`<div class="etoc-item" style="margin-left:${ind}px;font-size:${fs}px;font-weight:${fw}" onclick="(function(){var el=document.getElementById('${h.id}');if(el){var mw=document.getElementById('main-wrapper');mw.scrollTo({top:el.offsetTop-20,behavior:'smooth'})}})()">
+      <span style="color:${col};font-weight:700;margin-right:6px;flex-shrink:0">${num}</span>
+      <span style="color:${col}">${(h.innerText||'').trim().slice(0,50)}</span>
+    </div>`;
+  });
+  return thtml;
+}
+
+function printDoc(){
+  applyAllH();
+  const content = editor.innerHTML||'';
+  if(!content.trim()){alert('Chưa có nội dung để in');return}
+  const hS=[1,2,3,4].map(lv=>{
+    const f=document.getElementById('hf'+lv).value;
+    const s=document.getElementById('hs'+lv).value;
+    const c=document.getElementById('hc'+lv).value;
+    return `h${lv}{font-family:'${f}',sans-serif!important;font-size:${s}!important;color:${c}!important;font-weight:bold;margin:1em 0 .4em}`;
+  }).join(' ');
+  const bodyFont=window.getComputedStyle(editor).fontFamily||"'Segoe UI',Arial,sans-serif";
+  const bodySize=window.getComputedStyle(editor).fontSize||"15px";
+  const pw=window.open('','_blank');
+  pw.document.write(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>In tài liệu</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:${bodyFont};font-size:${bodySize};line-height:1.75;color:#111;padding:30px 50px;max-width:900px;margin:0 auto}
+    ${hS}
+    p{margin:.7em 0}img{max-width:100%;height:auto;display:block;margin:12px auto}
+    table{border-collapse:collapse;width:100%;margin:14px 0}
+    th,td{border:1px solid #ccc;padding:8px}th{background:#f0f0f0}
+    blockquote{border-left:4px solid #1a6b3c;padding:.5em 1em;margin:.8em 0;background:#f0f9f4;font-style:italic}
+    ul,ol{margin:.5em 0 .5em 1.5em}a{color:#1a6b3c}
+    @media print{body{padding:15px 30px}img{page-break-inside:avoid}h1,h2,h3{page-break-after:avoid}}
+  </style></head><body>${content}</body></html>`);
+  pw.document.close();
+  pw.focus();
+  setTimeout(()=>{pw.print();},600);
+}
+
+function exportDoc(){
+  // Đồng bộ font/màu từ panel vào tất cả heading trước khi xuất
+  applyAllH();
+  // Clone content, xóa inline font-family trên heading (để CSS !important quyết định)
+  const tmpDiv = document.createElement('div');
+  tmpDiv.innerHTML = editor.innerHTML||'';
+  tmpDiv.querySelectorAll('h1,h2,h3,h4').forEach((h,idx)=>{
+    const lv = parseInt(h.tagName[1]);
+    h.style.fontFamily = document.getElementById('hf'+lv).value;
+    h.style.fontSize   = document.getElementById('hs'+lv).value;
+    h.style.color      = document.getElementById('hc'+lv).value;
+    h.style.fontWeight = 'bold';
+  });
+  const content = tmpDiv.innerHTML||'';
+  if(!content.trim()){alert('Chưa có nội dung');return}
+  const title='DocFlow_'+new Date().toISOString().slice(0,10);
+  const tocHtml=buildExportTOC(content);
+  const hS=[1,2,3,4].map(lv=>{
+    const f=document.getElementById('hf'+lv).value;
+    const s=document.getElementById('hs'+lv).value;
+    const c=document.getElementById('hc'+lv).value;
+    // !important để override inline style từ DOCX gốc
+    return `h${lv}{font-family:'${f}',sans-serif!important;font-size:${s}!important;color:${c}!important;font-weight:bold;margin:1.2em 0 .4em}`;
+  }).join(' ');
+
+  // Lấy font body từ editor (Segoe UI giống app)
+  const bodyFont = window.getComputedStyle(editor).fontFamily || "'Segoe UI',Arial,sans-serif";
+  const bodySize = window.getComputedStyle(editor).fontSize || "15px";
+  const bodyLH   = window.getComputedStyle(editor).lineHeight || "1.75";
+  // Lấy font sidebar từ TOC panel (giống app)
+  const tocFont  = window.getComputedStyle(document.querySelector('.toc-body')).fontFamily || "'Segoe UI',Arial,sans-serif";
+
+  const full=`<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;overflow:hidden}
+    body{font-family:${bodyFont};font-size:${bodySize};background:#f9fafb;display:flex}
+    /* SIDEBAR TOC — giống app */
+    #sidebar{
+      width:260px;flex-shrink:0;background:#fff;border-right:1px solid #e5e7eb;
+      position:sticky;top:0;height:100vh;overflow:hidden;
+      display:flex;flex-direction:column;
+      font-family:${tocFont};
+    }
+    #sidebar-header{background:#1a6b3c;color:#fff;padding:12px 16px;font-size:13px;font-weight:700;letter-spacing:.5px;flex-shrink:0}
+    #sidebar-body{flex:1;overflow-y:auto;padding:8px 4px}
+    .etoc-item{display:flex;align-items:flex-start;padding:7px 8px;border-radius:6px;cursor:pointer;transition:.15s;border-left:3px solid transparent;margin-bottom:1px;font-family:${tocFont}}
+    .etoc-item:hover{background:#e8f5ee;border-left-color:#1a6b3c}
+    .etoc-item.active{background:#e8f5ee;border-left-color:#1a6b3c}
+    /* WRAPPER — flex:1, nền đậm, overflow scroll */
+    #main-wrapper{
+      flex:1;min-width:0;
+      background:#e8eaed;
+      overflow-y:auto;
+      height:100vh;
+      display:flex;
+      justify-content:center;
+      padding:36px 40px;
+    }
+    /* CONTENT — giữ max-width, căn giữa trong wrapper */
+    #main-content{
+      width:100%;
+      max-width:860px;
+      background:#fff;
+      border-radius:10px;
+      box-shadow:0 2px 16px rgba(0,0,0,.10);
+      padding:40px 56px;
+      line-height:${bodyLH};
+      color:#111;
+      font-family:${bodyFont};
+      font-size:${bodySize};
+      align-self:flex-start;
+    }
+    ${hS}
+    p{margin:.7em 0}
+    img{max-width:100%;height:auto;display:block;margin:12px auto;border-radius:4px}
+    table{border-collapse:collapse;width:100%;margin:16px 0}
+    th,td{border:1px solid #ddd;padding:8px;font-family:${bodyFont}}
+    th{background:#f5f5f5;font-weight:600}
+    blockquote{border-left:4px solid #1a6b3c;padding:.5em 1em;margin:.8em 0;background:#f0f9f4;font-style:italic;border-radius:0 6px 6px 0}
+    ul,ol{margin:.5em 0 .5em 1.5em}
+    a{color:#1a6b3c}
+    @media print{html,body{height:auto;overflow:visible}#sidebar{display:none}#main-wrapper{display:block;background:none;padding:0;height:auto;overflow:visible}#main-content{max-width:100%;box-shadow:none;border-radius:0;padding:20px 40px;height:auto}}
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <div id="sidebar-header">📋 Mục lục</div>
+    <div id="sidebar-body">${tocHtml}</div>
+  </div>
+  <div id="main-wrapper">
+    <div id="main-content">${content}</div>
+  </div>
+  <script>
+    // Scroll spy cho file export
+    const mw=document.getElementById('main-wrapper');
+    const mc=document.getElementById('main-content');
+    const items=document.querySelectorAll('.etoc-item');
+    mw.addEventListener('scroll',function(){
+      const hs=mc.querySelectorAll('h1,h2,h3,h4');
+      let cur=null;
+      hs.forEach(h=>{if(h.offsetTop<=mw.scrollTop+120)cur=h});
+      if(!cur)return;
+      items.forEach(it=>it.classList.remove('active'));
+      const tgt=document.querySelector('.etoc-item[onclick*="'+cur.id+'"]');
+      if(tgt){tgt.classList.add('active');tgt.scrollIntoView({block:'nearest'})}
+    },{passive:true});
+  <\/script>
+</body>
+</html>`;
+  const blob=new Blob([full],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=title+'.html';a.click();
+  setStatus('✅ Đã xuất: '+title+'.html (có sidebar TOC)');
+}
+
+editor.addEventListener('input',refresh);
+</script>
+</body>
+</html>
