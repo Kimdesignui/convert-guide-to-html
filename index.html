@@ -64,6 +64,11 @@
     .toc-panel{width:220px;flex-shrink:0;background:#fff;border:1px solid var(--bd);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);display:flex;flex-direction:column;overflow:hidden}
     .toc-header{padding:10px 12px 8px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
     .toc-header-title{font-size:16px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px}
+    .search-panel{border-top:1px solid var(--bd);flex-shrink:0;padding:6px 8px;background:#fafafa}
+    .search-bar{display:flex;align-items:center;gap:4px;background:#fff;border:1px solid var(--bd);
+      border-radius:8px;padding:5px 8px;box-shadow:inset 0 1px 3px rgba(0,0,0,.05)}
+    .search-highlight{background:#FFE066;border-radius:2px;padding:0 1px}
+    .search-highlight.active{background:#FF9800;color:#fff;border-radius:2px}
     .toc-expand-all{font-size:14px;color:var(--p);cursor:pointer;border:none;background:none;padding:2px 6px;border-radius:4px}
     .toc-expand-all:hover{background:var(--p3)}
     .toc-body{flex:1;overflow-y:auto;padding:6px 4px}
@@ -274,11 +279,49 @@
     <div class="center-inner">
       <div class="toc-panel">
         <div class="toc-header">
-          <span class="toc-header-title">📋 Mục lục</span>
-          <button class="toc-expand-all" id="expandAllBtn" onclick="toggleAllGroups()">Thu gọn</button>
+          <span class="toc-header-title">📋 Danh mục</span>
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+            <div style="position:relative" id="backBtnWrap">
+              <button onclick="toggleBackInput()" title="Gắn link quay lại"
+                style="background:#f3f4f6;border:1px solid var(--bd);border-radius:6px;
+                       padding:3px 8px;font-size:12px;cursor:pointer;color:var(--p)">← Quay lại</button>
+              <div id="backInputBox" style="display:none;position:absolute;top:34px;right:0;z-index:999;
+                background:#fff;border:1px solid var(--bd);border-radius:8px;padding:8px 10px;
+                box-shadow:0 4px 16px rgba(0,0,0,.13);white-space:nowrap;min-width:260px">
+                <div style="font-size:12px;color:#666;margin-bottom:4px">🔗 Link quay lại:</div>
+                <div style="display:flex;gap:6px">
+                  <input id="backLinkInput" type="url" placeholder="https://..."
+                    style="flex:1;border:1px solid var(--bd);border-radius:5px;padding:4px 8px;font-size:13px;outline:none"
+                    onkeydown="if(event.key==='Enter')saveBackLink()">
+                  <button onclick="saveBackLink()"
+                    style="background:var(--p);color:#fff;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-size:13px">Lưu</button>
+                </div>
+              </div>
+            </div>
+            <select id="expandSelect" onchange="handleExpandSelect(this.value)"
+              style="border:1px solid var(--bd);border-radius:6px;padding:3px 6px;font-size:12px;
+                     background:#f3f4f6;color:var(--p);cursor:pointer;outline:none">
+              <option value="expand">Mở rộng</option>
+              <option value="collapse">Thu gọn</option>
+            </select>
+          </div>
         </div>
         <div class="toc-body" id="tocBody">
           <div style="color:var(--gray);font-size:12px;padding:24px 8px;text-align:center;line-height:1.6">Upload file để tạo<br>mục lục tự động...</div>
+        </div>
+        <div class="search-panel" id="searchPanel">
+          <div class="search-bar">
+            <input id="searchInput" type="text" placeholder="🔍 Tìm kiếm nội dung..."
+              oninput="liveSearch(this.value)"
+              onkeydown="if(event.key==='Enter')nextMatch();if(event.key==='Escape')clearSearch()"
+              style="flex:1;border:none;outline:none;font-size:13px;background:transparent;color:#111">
+            <div style="display:flex;align-items:center;gap:2px;flex-shrink:0">
+              <span id="searchCount" style="font-size:11px;color:#888;min-width:36px;text-align:right"></span>
+              <button onclick="prevMatch()" title="Trước" style="border:none;background:none;cursor:pointer;font-size:13px;padding:2px 5px;color:var(--p)">▲</button>
+              <button onclick="nextMatch()" title="Tiếp" style="border:none;background:none;cursor:pointer;font-size:13px;padding:2px 5px;color:var(--p)">▼</button>
+              <button onclick="clearSearch()" title="Xóa" style="border:none;background:none;cursor:pointer;font-size:15px;padding:2px 5px;color:#aaa">✕</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="editor-wrap">
@@ -496,7 +539,8 @@ function buildTOC(){
     // H1 = tiêu đề tài liệu: không đánh số, lv=-1 (special)
     // H2→lv=0(A,B,C), H3→lv=1(1.), H4→lv=2(1.1)
     if(tagNum===1){
-      items.push({id:h.id,lv:-1,num:'',txt:(h.innerText||'').trim().slice(0,55)});
+      const h1Txt=(h.innerText||'').trim().slice(0,60);
+      items.push({id:h.id,lv:-1,num:'',txt:h1Txt});
       return;
     }
     const lv=tagNum-2;
@@ -560,6 +604,114 @@ function buildTOC(){
 }
 function toggleGroup(id,btn){const el=document.getElementById(id);if(!el)return;el.classList.toggle('open');btn.classList.toggle('open')}
 function toggleSub(id,btn){const el=document.getElementById(id);if(!el)return;el.classList.toggle('open');btn.classList.toggle('open')}
+// ── Back button ──────────────────────────────────────────────────
+function toggleBackInput(){
+  const box=document.getElementById('backInputBox');
+  box.style.display=box.style.display==='none'?'block':'none';
+  if(box.style.display==='block')document.getElementById('backLinkInput').focus();
+}
+function saveBackLink(){
+  const url=document.getElementById('backLinkInput').value.trim();
+  const btn=document.querySelector('#backBtnWrap>button');
+  if(url){
+    btn.onclick=()=>window.open(url,'_self');
+    btn.style.background='var(--p)';btn.style.color='#fff';
+    btn.title='Quay lại: '+url;
+  }
+  document.getElementById('backInputBox').style.display='none';
+}
+document.addEventListener('click',function(e){
+  const w=document.getElementById('backBtnWrap');
+  if(w&&!w.contains(e.target))document.getElementById('backInputBox').style.display='none';
+});
+
+// ── Expand/Collapse select ────────────────────────────────────────
+function handleExpandSelect(val){
+  const groups=editor.querySelectorAll('.toc-group,[data-grp]');
+  document.querySelectorAll('.toc-group,.toc-subgroup').forEach(g=>{
+    g.style.display=val==='collapse'?'none':'block';
+  });
+}
+
+// ── Search ────────────────────────────────────────────────────────
+let _matches=[],_cur=0,_searchTimer=null;
+
+function liveSearch(q){
+  // Debounce 250ms tránh re-trigger liên tục khi gõ
+  clearTimeout(_searchTimer);
+  _searchTimer=setTimeout(()=>_doSearch(q),250);
+}
+
+function _doSearch(q){
+  clearHighlights();
+  const cnt=document.getElementById('searchCount');
+  if(!q.trim()){cnt.textContent='';return;}
+
+  // Escape regex special chars
+  const esc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const re=new RegExp(esc,'gi');
+
+  // SNAPSHOT toàn bộ text nodes TRƯỚC khi thay DOM
+  const snapshot=[];
+  (function collect(node){
+    if(node.nodeType===3){
+      // Bỏ qua text node rỗng và node nằm trong mark đã highlight
+      if(node.nodeValue.trim()&&!(node.parentNode&&node.parentNode.classList&&node.parentNode.classList.contains('search-highlight')))
+        snapshot.push(node);
+    } else {
+      node.childNodes.forEach(collect);
+    }
+  })(editor);
+
+  // Thay thế sau khi đã có snapshot đầy đủ
+  snapshot.forEach(node=>{
+    if(!node.parentNode)return; // node có thể bị detach
+    const txt=node.nodeValue;
+    if(!re.test(txt)){re.lastIndex=0;return;}
+    re.lastIndex=0;
+    const frag=document.createDocumentFragment();
+    let last=0,m;
+    while((m=re.exec(txt))!==null){
+      if(m.index>last)frag.appendChild(document.createTextNode(txt.slice(last,m.index)));
+      const mark=document.createElement('mark');
+      mark.className='search-highlight';
+      mark.textContent=m[0];
+      _matches.push(mark);
+      frag.appendChild(mark);
+      last=re.lastIndex;
+    }
+    if(last<txt.length)frag.appendChild(document.createTextNode(txt.slice(last)));
+    node.parentNode.replaceChild(frag,node);
+  });
+
+  cnt.textContent=_matches.length?'1/'+_matches.length:'Không tìm thấy';
+  if(_matches.length){_cur=0;scrollToMatch(0);}
+}
+
+function scrollToMatch(idx){
+  _matches.forEach((m,i)=>m.classList.toggle('active',i===idx));
+  if(_matches[idx]){
+    _matches[idx].scrollIntoView({block:'center',behavior:'smooth'});
+    document.getElementById('searchCount').textContent=(idx+1)+'/'+_matches.length;
+  }
+}
+function nextMatch(){if(!_matches.length)return;_cur=(_cur+1)%_matches.length;scrollToMatch(_cur);}
+function prevMatch(){if(!_matches.length)return;_cur=(_cur-1+_matches.length)%_matches.length;scrollToMatch(_cur);}
+function clearHighlights(){
+  // Dùng innerHTML snapshot để tránh lỗi DOM mutation khi xóa marks
+  editor.querySelectorAll('mark.search-highlight').forEach(m=>{
+    if(m.parentNode)m.outerHTML=m.textContent;
+  });
+  editor.normalize();
+  _matches=[];_cur=0;
+  document.getElementById('searchCount').textContent='';
+}
+function clearSearch(){
+  clearTimeout(_searchTimer);
+  document.getElementById('searchInput').value='';
+  clearHighlights();
+}
+
 function toggleAllGroups(){
   const groups=document.querySelectorAll('.toc-children');
   const btns=document.querySelectorAll('.toc-l1-toggle,.toc-l2-toggle');
@@ -634,7 +786,13 @@ function buildExportTOC(content){
     // H1 = tiêu đề tài liệu: không đánh số, lv=-1 (special)
     // H2→lv=0(A,B,C), H3→lv=1(1.), H4→lv=2(1.1)
     if(tagNum===1){
-      items.push({id:h.id,lv:-1,num:'',txt:(h.innerText||'').trim().slice(0,55)});
+      // H1: hiện tiêu đề không số trong sidebar export
+      const h1Txt=(h.innerText||'').trim().slice(0,60);
+      thtml+=`<div class="etoc-item" style="font-size:16px;font-weight:700;color:#111;
+        border-bottom:1px solid #e5e7eb;padding:10px 8px 8px;margin-bottom:4px;cursor:pointer"
+        onclick="(function(){var el=document.getElementById('${h.id}');if(el){var mw=document.getElementById('main-wrapper');mw.scrollTo({top:el.offsetTop-20,behavior:'smooth'})}})()">
+        ${h1Txt}
+      </div>`;
       return;
     }
     const lv=tagNum-2;
